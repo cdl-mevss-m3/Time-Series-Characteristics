@@ -22,6 +22,28 @@ import util
 
 # noinspection PyMethodMayBeStatic
 class TimeSeriesCharacteristics:
+    """
+    The base class for calculating time series characteristics. Each function has
+    the time series ``data`` as first parameter. The characteristics are designed
+    to work on standardized (zero mean, unit variance) data, so ensure that all
+    time series are standardized before calling the functions of this class.
+    """
+    
+    def __init__(self, block_padding_limit: float = None):
+        """
+        Creates a new ``TimeSeriesCharacteristics``.
+        
+        :param block_padding_limit: If not None, specifies the limit in % of the data
+            size, which the last block shall not exceed when calculating block-wise
+            metrics. This takes effect in case the data length is not evenly divisible
+            by the block size and thus the last block is smaller. If this last block
+            is larger than this limit, an exception is raised (default: None)
+            Example:
+                data length = 100, block size = 60, block_padding_limit = 0.2 = 20%
+                last block size = 40 = 40% of data length
+                40% > 20% ---> raise exception
+        """
+        self.block_padding_limit = block_padding_limit
     
     ##########################################################################
     # helper functions
@@ -36,14 +58,15 @@ class TimeSeriesCharacteristics:
         return np.array(data, copy=False)
     
     @staticmethod
-    def _check_block_padding(data_size, block_size, limit=0.2):
+    def _check_block_padding(data_size, block_size, limit):
         """
-        Block-based metrics usually run into the problem that the last block is smaller, if the data length is not evenly divisible by the block size.
-        This function raises an exception if the last block size is larger than x % of the overall data size.
+        Block-based metrics usually run into the problem that the last block is smaller, if the data length is
+        not evenly divisible by the block size. This function raises an exception if the last block size is
+        larger than x % of the overall data size.
 
         :param data_size: The length of the data
         :param block_size: The length of the block
-        :param limit: The limit in % of the data size, which the last block shall not exceed (default: 0.2)
+        :param limit: The limit in % of the data size, which the last block shall not exceed
         :return The padding ratio, i.e. the size of the remaining, last block, in % of the overall data size
         """
         padding = (data_size % block_size) / data_size
@@ -53,15 +76,13 @@ class TimeSeriesCharacteristics:
                             .format(block_size, data_size, block_size, data_size % block_size, padding, limit))
         return padding
     
-    @staticmethod
-    def _block_metrics(data, block_size: int):
+    def _block_metrics(self, data, block_size: int):
         """
         Computes stability, lumpiness, level shift, and variance change in one pass
         :return: A dictionary with keys index and value
         """
-        
-        # TODO: ignore block padding for now
-        # TimeSeriesCharacteristics._check_block_padding(len(data), block_size)
+        if self.block_padding_limit is not None:
+            TimeSeriesCharacteristics._check_block_padding(len(data), block_size, self.block_padding_limit)
         
         means, variances = [], []
         for i in range(0, data.shape[0], block_size):
@@ -79,10 +100,8 @@ class TimeSeriesCharacteristics:
                     level_shift=level_shift_,
                     variance_change=variance_change_)
     
-    @staticmethod
-    def _kullback_leibler_core(data: Union[np.ndarray, pd.Series], block_size: int,
+    def _kullback_leibler_core(self, data: Union[np.ndarray, pd.Series], block_size: int,
                                interval: Union[str, Tuple[int, int]] = "infer", resolution: int = 100):
-        # min = -inf, max = inf
         """
         Computes the Kullback-Leibler score, which is the difference of
         Kullback-Leibler divergences of consecutive blocks.
@@ -98,9 +117,10 @@ class TimeSeriesCharacteristics:
         :param resolution: The resolution of the density estimation (default: 100)
         :return: A dictionary with keys index and value
         """
+        # min = -inf, max = inf
+        if self.block_padding_limit is not None:
+            TimeSeriesCharacteristics._check_block_padding(len(data), block_size, self.block_padding_limit)
         
-        # TODO: ignore block padding for now
-        # TimeSeriesCharacteristics._check_block_padding(len(data), block_size)
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
         
         # the value range, onto which we estimate the distribution
@@ -185,7 +205,7 @@ class TimeSeriesCharacteristics:
         """
         # min = 0, max = inf
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
-        lumpiness_ = TimeSeriesCharacteristics._block_metrics(data, block_size)["lumpiness"]
+        lumpiness_ = self._block_metrics(data, block_size)["lumpiness"]
         return lumpiness_
     
     def stability(self, data, block_size: int):
@@ -194,7 +214,7 @@ class TimeSeriesCharacteristics:
         """
         # min = 0, max = 1 (for z-norm data)
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
-        stability_ = TimeSeriesCharacteristics._block_metrics(data, block_size)["stability"]
+        stability_ = self._block_metrics(data, block_size)["stability"]
         return stability_
     
     ##########################################################################
@@ -306,7 +326,7 @@ class TimeSeriesCharacteristics:
         """
         # min = 0, max = inf
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
-        level_shift_ = TimeSeriesCharacteristics._block_metrics(data, block_size)["level_shift"]
+        level_shift_ = self._block_metrics(data, block_size)["level_shift"]
         return level_shift_
     
     def variance_change(self, data, block_size: int):
@@ -315,7 +335,7 @@ class TimeSeriesCharacteristics:
         """
         # min = 0, max = inf
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
-        variance_change_ = TimeSeriesCharacteristics._block_metrics(data, block_size)["variance_change"]
+        variance_change_ = self._block_metrics(data, block_size)["variance_change"]
         return variance_change_
     
     ##########################################################################
@@ -494,7 +514,7 @@ class TimeSeriesCharacteristics:
         """
         # min = -inf, max = inf
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
-        return TimeSeriesCharacteristics._kullback_leibler_core(data, block_size, interval, resolution)["value"]
+        return self._kullback_leibler_core(data, block_size, interval, resolution)["value"]
     
     def index_of_kullback_leibler_score(self, data: Union[np.ndarray, pd.Series], block_size: int,
                                         interval: Union[str, Tuple[int, int]] = "infer", resolution: int = 100):
@@ -515,7 +535,7 @@ class TimeSeriesCharacteristics:
         """
         # min = 0, max = 1
         data = TimeSeriesCharacteristics._ensure_ndarray(data)
-        return TimeSeriesCharacteristics._kullback_leibler_core(data, block_size, interval, resolution)["index"]
+        return self._kullback_leibler_core(data, block_size, interval, resolution)["index"]
     
     ##########################################################################
     # 3.2. Complexity (Miscellaneous) Complexity Features
@@ -764,7 +784,8 @@ class NormalizedTimeSeriesCharacteristics(TimeSeriesCharacteristics):
     normalized to the interval [0, 1].
     """
     
-    def __init__(self, norm_df=None, features=None, min_max_df=None, column_min=None, column_max=None, funcs_to_merge=None, param_separator="__"):
+    def __init__(self, block_padding_limit=None,
+                 norm_df=None, features=None, min_max_df=None, column_min=None, column_max=None, funcs_to_merge=None, param_separator="__"):
         """
         Creates a new ``NormalizedTimeSeriesCharacteristics``. There are three creation options:
          1) Specifying no parameters (parameterless constructor call): In this case, the created
@@ -774,6 +795,7 @@ class NormalizedTimeSeriesCharacteristics(TimeSeriesCharacteristics):
          3) Specifying ``features``, ``min_max_df``, ``funcs_to_merge``, ``column_min``,
             ``column_max`` (see method ``init`` for a full description)
         """
+        super().__init__(block_padding_limit)
         if norm_df is not None or features is not None:
             self.init(norm_df, features, min_max_df, column_min, column_max, funcs_to_merge, param_separator)
         else:
