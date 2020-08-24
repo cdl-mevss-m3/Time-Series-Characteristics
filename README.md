@@ -28,8 +28,8 @@ We sorted and grouped them according to various properties into the following fo
 
 Here is a detailed table with all features within the above groups:
 
-| Group                 | Subgroup                 | Feature                                  | Descripion                                                                                                                                             |
-|-----------------------|--------------------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Group                 | Subgroup                 | Feature                                | Descripion                                                                                                                                             |
+|-----------------------|--------------------------|----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Distributional**    | Dispersion               | `kurtosis`                             | measure of tailedness                                                                                                                                  |
 |                       |                          | `skewness`                             | measure of asymmetry                                                                                                                                   |
 |                       |                          | `shift`                                | mean minus the median of those values that are smaller than the mean                                                                                   |
@@ -70,6 +70,7 @@ Here is a detailed table with all features within the above groups:
 |                       |                          | `normalized_longest_strike_below_mean` | relative length of the longest series of consecutive values below the mean                                                                             |
 |                       |                          | `flat_spots`                           | maximum run-length of values when divided into quantile-based bins                                                                                     |
 |                       | Peaks                    | `normalized_number_peaks`              | number of peaks, where a peak of support *n* is defined as a value which is bigger than its *n* left and *n* right neighbors                           |
+|                       |                          | `step_changes`                         | number of times the time series significantly shifts its value range                                                                                   |
 | **Statistical Tests** |                          | `adf`                                  | augmented Dickey-Fuller (ADF) test for unit root presence                                                                                              |
 |                       |                          | `kpss`                                 | Kwiatkowski-Phillips-Schmidt-Shin (KPSS) test for stationarity                                                                                         |
 
